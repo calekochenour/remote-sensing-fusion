@@ -139,7 +139,7 @@ def get_data(radiance_df, year, month, day):
     return radiance
 
 
-def get_array(radiance_data, output_rows=18, output_columns=40):
+def get_array(radiance_data, output_rows, output_columns):
     """Extracts radiance and cloud mask data into a
     correctly-shaped array for a study area.
 
@@ -181,7 +181,7 @@ def get_array(radiance_data, output_rows=18, output_columns=40):
     return radiance_array
 
 
-def store_data(radiance_df, cloud_mask_df, mask_value, dates):
+def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
     """Masks and stores daily radiance data
     in a dictionary.
 
@@ -197,6 +197,10 @@ def store_data(radiance_df, cloud_mask_df, mask_value, dates):
 
     mask_value : int
         Value indicating cloudy pixel that requires masking.
+
+    array_shape : tuple (of ints)
+        Tuple containing the shape (rows, columns) of the
+        output numpy arrays.
 
     dates : list
         List of dates (strings), formatted as 'YYYY-MM-DD'.
@@ -241,8 +245,8 @@ def store_data(radiance_df, cloud_mask_df, mask_value, dates):
             cloud_mask_df, year=year, month=month, day=day)
 
         # Create array from dataframe
-        radiance_array = get_array(radiance)
-        cloud_mask_array = get_array(cloud_mask)
+        radiance_array = get_array(radiance, array_shape[0], array_shape[1])
+        cloud_mask_array = get_array(cloud_mask, array_shape[0], array_shape[1])
 
         # Create tuple for radiance data and cloud mask
         radiance_mask_tuple = (radiance_array, cloud_mask_array)
