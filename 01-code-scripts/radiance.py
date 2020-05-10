@@ -435,3 +435,46 @@ def export_array(array, output_path, metadata):
         output_message = f"Exported {output_path}"
 
     return print(output_message)
+
+
+def subtract_arrays(minuend, subtrahend):
+    """Subtract one array from another if
+    the arrays have the same shape.
+
+    Parameters
+    ----------
+    minuend : numpy array
+        Starting array.
+
+    subtrahend : numpy array
+        Array to subtract.
+
+    Returns
+    -------
+    difference : numpy arrays
+        Results of the calculation: minuend - subtrahend.
+
+    Example
+    -------
+        >>> # Import numpy
+        >>> import numpy as np
+        >>> # Create and subtract arrays
+        >>> arr_1 = np.array([1, 2, 3, 4])
+        >>> arr_2 = np.array([2, 2, 2, 2])
+        >>> arr_diff = subtract_arrays(arr_1, arr_2)
+        >>> # Display difference
+        >>> array_diff
+        array([-1,  0,  1,  2])
+    """
+    # Subtract arrays
+    try:
+        difference = minuend - subtrahend
+
+    # Catch shape mismatch
+    except ValueError as error:
+        print(
+            f'ERROR - Array shape mismatch ({minuend.shape} vs. {subtrahend.shape})\nReturning empty array.')
+        difference = np.empty(0)
+
+    # Return difference
+    return difference
