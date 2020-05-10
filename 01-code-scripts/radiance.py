@@ -478,3 +478,70 @@ def subtract_arrays(minuend, subtrahend):
 
     # Return difference
     return difference
+
+
+def create_plotting_extent(study_area, longitude_column, latitude_column):
+    """Creates a plotting extent from a
+    dataframe containing pixel lat/lon values.
+
+    Intended for use with plotting and exporting
+    numpy array values, with spatial properties.
+
+    Parameters
+    ----------
+    study_area : pandas dataframe
+        Dataframe containing lat/lon values
+        for all pixels in the study area.
+
+    longitude_column : str
+        Name of the column containing longitude
+        values.
+
+    latitude_column : str
+        Name of the column containing latitude
+        values.
+
+    Returns
+    ------
+    extent : tuple (of float)
+        Tuple (left, right, bottom, top) of the
+        study area bounds.
+
+    Example
+    -------
+        >>>
+        >>>
+        >>>
+        >>>
+    """
+    # Get number pixels in study area
+    num_pixels = len(study_area.index)
+
+    # Get number of rows in study area (unique latitude values)
+    num_rows = len(study_area[latitude_column].unique())
+
+    # Get number of columns in study area (unique longitude values)
+    num_columns = len(study_area[longitude_column].unique())
+
+    # Get min/max longitude and latitude values
+    longitude_min = study_area[longitude_column].min()
+    longitude_max = study_area[longitude_column].max()
+    latitude_min = study_area[latitude_column].min()
+    latitude_max = study_area[latitude_column].max()
+
+    # Get the spacing between rows (latitude spacing)
+    row_spacing = (latitude_max - latitude_min) / (num_rows - 1)
+
+    # Get the spacing between columns (longitude spacing)
+    column_spacing = (longitude_max - longitude_min) / (num_columns - 1)
+
+    # Create plotting extent (lat/lon as pixel centoroids)
+    extent = (
+        longitude_min - column_spacing/2,
+        longitude_max + column_spacing/2,
+        latitude_min - row_spacing/2,
+        latitude_max + row_spacing/2
+    )
+
+    # Return the plotting extent
+    return extent
