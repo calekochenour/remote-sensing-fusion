@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
 import rasterio as rio
+from rasterio.transform import from_origin
 import earthpy.mask as em
 
 
@@ -659,13 +660,84 @@ def create_plotting_extent(study_area, longitude_column, latitude_column):
     # Get the spacing between columns (longitude spacing)
     column_spacing = (longitude_max - longitude_min) / (num_columns - 1)
 
-    # Create plotting extent (lat/lon as pixel centoroids)
+    # Define extent (lat/lon as top-left corner of pixel)
     extent = (
-        longitude_min - column_spacing/2,
-        longitude_max + column_spacing/2,
-        latitude_min - row_spacing/2,
-        latitude_max + row_spacing/2
+        longitude_min,
+        longitude_max + column_spacing,
+        latitude_min - row_spacing,
+        latitude_max
     )
 
-    # Return the plotting extent
-    return extent
+    # Define transform (top-left corner: west, north, and pixel size: xsize, ysize)
+    transform = from_origin(
+        longitude_min, latitude_max, column_spacing, row_spacing)
+
+    # Return extent
+    return extent, transform
+
+
+def create_metadata(array, transform, driver='GTiff', nodata=0, count=1, crs="epsg:4326"):
+    """Creates export metadata, for use with
+    exporting an array to raster format.
+
+    Parameters
+    ----------
+    array : numpy array
+        Array containing data for export.
+
+    transform : rasterio.transform affine object
+        Affine transformation for the georeferenced array.
+
+    driver : str
+        File type/format for export. Defaults to GeoTiff ('GTiff').
+
+    nodata : int or float
+        Value in the array indicating no data. Defaults to 0.
+
+    count : int
+        Number of bands in the array for export. Defaults to 1.
+
+    crs : str
+        Coordinate reference system for the georeferenced
+        array. Defaults to EPSG 4326 ('epsg:4326').
+
+    Returns
+    -------
+    metadata : dict
+        Dictionary containing the export metadata.
+
+    Example
+    -------
+        >>> # Imports
+        >>> import numpy as np
+        >>> from rasterio.transform import from_origin
+        >>> # Create array
+        >>> arr = np.array([[1,2],[3,4]])
+        >>> transform = from_origin(-73.0, 43.0, 0.5, 0.5)
+        >>> meta = create_metadata(arr, transform)
+        # Display metadata
+        >>> meta
+        {'driver': 'GTiff',
+         'dtype': dtype('int32'),
+         'nodata': 0,
+         'width': 2,
+         'height': 2,
+         'count': 1,
+         'crs': 'epsg:4326',
+         'transform': Affine(0.5, 0.0, -73.0,
+                0.0, -0.5, 43.0)}
+    """
+    # Define metadata
+    metadata = {
+        "driver": driver,
+        "dtype": array.dtype,
+        "nodata": nodata,
+        "width": array.shape[1],
+        "height": array.shape[0],
+        "count": count,
+        "crs": crs,
+        "transform": transform
+    }
+
+    # Return metadata
+    return metadata
