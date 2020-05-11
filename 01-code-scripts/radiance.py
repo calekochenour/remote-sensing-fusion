@@ -27,9 +27,15 @@ def add_missing_data(df, start_date, end_date):
 
     Example
     -------
-        >>> filled = add_missing_data(radiance, '2019-09-01', '2020-04-30')
-        >>>
-        >>>
+        >>> # Define path to radiance data
+        >>> psu_radiance_path = os.path.join(
+        ...     radiance_directory,
+        ...     "PSU_Radiance_RavelOrderF.csv")
+        >>> # Read radiance values to dataframe
+        >>> psu_radiance_df = pd.read_csv(psu_radiance_path)
+        >>> # Add missing data
+        >>> psu_radiance_df_filled = add_missing_data(
+        ...     psu_radiance_df, '2019-09-01', '2020-04-30')
     """
     # Create copy of dataframe (avoids changing the original)
     df_copy = df.copy()
@@ -80,10 +86,19 @@ def create_date_list(start_date, end_date, date_frequency='D'):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
-        >>>
+        >>> # Get list of dates (daily) from Sept 2019 to April 2020
+        >>> date_list = create_date_list(
+        ...     start_date='2019-09-01',
+        ...     end_date='2020-04-30')
+        >>> # Display number of days
+        >>> len(date_list)
+        243
+        >>> # Display first day in list
+        >>> date_list[0]
+        '2019-09-01'
+        >>> # Display last day in list
+        >>> date_list[-1]
+        '2020-04-30'
     """
     # Create pandas date range (all days) with start and end date
     date_range = pd.date_range(start_date, end_date, freq=date_frequency)
@@ -124,10 +139,15 @@ def get_data(radiance_df, year, month, day):
 
     Example
     -------
-        >>> radiance_data = get_radiance_data(radiance_df, year='2019', month='09', day='01')
-        >>>
-        >>>
-        >>>
+        >>> # Define path to radiance data
+        >>> psu_radiance_path = os.path.join(
+        ...     radiance_directory,
+        ...     "PSU_Radiance_RavelOrderF.csv")
+        >>> # Read radiance values to dataframe
+        >>> psu_radiance_df = pd.read_csv(psu_radiance_path)
+        >>> # Get radiance data for September 1, 2019
+        >>> radiance_2019_09_01 = get_data(
+        ...     psu_radiance_df, year='2019', month='09', day='01')
     """
     # Get single-day radiance data (values or cloud mask) dataframe
     #  that matches the exact date in the input dataframe
@@ -168,9 +188,19 @@ def get_array(radiance_data, output_rows, output_columns):
 
     Example
     ------
-        >>> import pandas as pd
-        >>> radiance_df = pd.read_csv(radiance_path)
-        >>> radiance_arr = get_array(radiance_df)
+        >>> # Define path to radiance data
+        >>> psu_radiance_path = os.path.join(
+        ...     radiance_directory,
+        ...     "PSU_Radiance_RavelOrderF.csv")
+        >>> # Read radiance values to dataframe
+        >>> psu_radiance_df = pd.read_csv(psu_radiance_path)
+        >>> # Create array from dataframe
+        >>> psu_radiance_arr = get_array(psu_radiance_df, 18, 40)
+        >>> # Display type
+        numpy.ma.core.MaskedArray
+        >>> Display array shape
+        >>> psu_radiance_arr.shape
+        (18, 40)
     """
     # Convert dataframe to numpy array, reshape array, and transpose array
     # Rows and columns must be flipped in .reshape due to how the data
@@ -213,9 +243,41 @@ def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
+        >>> # Define path to radiance data
+        >>> psu_radiance_path = os.path.join(
+        ...     radiance_directory,
+        ...     "PSU_Radiance_RavelOrderF.csv")
+        >>> psu_cloud_mask_path = os.path.join(
+        ...     radiance_directory,
+        ...     "PSU_CloudMask_RavelOrderF.csv")
+        >>> # Read radiance data to dataframes
+        >>> psu_radiance_df = pd.read_csv(psu_radiance_path)
+        >>> psu_cloud_mask_df = pd.read_csv(psu_cloud_mask_path)
+        >>> # Add missing data
+        >>> psu_radiance_filled = add_missing_data(
+        ...     psu_radiance_df, '2019-09-01', '2020-04-30')
+        >>> psu_clous_mask_filled = add_missing_data(
+        ...     psu_cloud_mask_df, '2019-09-01', '2020-04-30')
+        >>> # Create date list
+        >>> date_list = create_date_list(
+        ...     start_date='2019-09-01',
+        ...     end_date='2020-04-30')
+        >>> # Store all daily filled values in nested dictionary
+        >>> radiance_sept_2019_apr_2020 = store_data(
+        ...     psu_radiance_df_filled,
+        ...     psu_cloud_mask_df_filled,
+        ...     mask_value=100,
+        ...     array_shape=(18, 40),
+        ...     dates=date_list)
+        >>> # Display top-level keys
+        >>> radiance_sept_2019_apr_2020.keys()
+        dict_keys(['2019', '2020'])
+        >>> # Display 2019 keys
+        >>> radiance_sept_2019_apr_2020.get('2019').keys()
+        dict_keys(['09', '10', '11', '12'])
+        >>> Display max radiance on September 15, 2019
+        >>> radiance_sept_2019_apr_2020['2019']['09']['15'].max()
+        1121.0
     """
     # Create dictionary to store cloud free radiance data
     radiance_masked = {}
@@ -296,9 +358,22 @@ def extract_data(radiance, dates):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
+        >>> # Create date list
+        >>> date_list = create_date_list(
+        ...     start_date='2019-09-01',
+        ...     end_date='2020-04-30')
+        >>> # Store all daily filled values in nested dictionary
+        >>> radiance_sept_2019_apr_2020 = store_data(
+        ...     psu_radiance_df_filled,
+        ...     psu_cloud_mask_df_filled,
+        ...     mask_value=100,
+        ...     array_shape=(18, 40),
+        ...     dates=date_list)
+        # Create date range to extract
+        >>> date_range = create_date_list('2019-12-22', '2020-01-10'),
+        >>> # Get radiance array for each date into list
+        >>> radiance_arrays = extract_data(
+        ...     radiance=radiance_sept_2019_apr_2020, dates=date_range)
     """
     # Flatten dataframe into dictionary
     radiance_df = json_normalize(radiance)
@@ -352,10 +427,16 @@ def flatten_data(radiance):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
-        >>>
+        >>> # Get September 2019 data (all days)
+        >>> radiance = radiance_sept_2019_apr_2020.get('2019').get('09')
+        >>> # Flatten dictionary to list of arrays
+        >>> radiance_arrays = flatten_data(radiance)
+        >>> # Display type
+        >>> type(radiance_arrays)
+        list
+        >>> Display number of days
+        >>> len(radiance_arrays)
+        30
     """
     # Create list of arrays from dictionary
     array_list = [radiance.get(key) for key in radiance.keys()]
@@ -381,10 +462,21 @@ def calculate_mean(radiance_data):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
-        >>>
+        >>> # Get September 2019 data (all days)
+        >>> radiance = radiance_sept_2019_apr_2020.get('2019').get('09')
+        >>> # Flatten dictionary to list of arrays
+        >>> radiance_arrays = flatten_data(radiance)
+        >>> # Display type
+        >>> type(radiance_arrays)
+        list
+        >>> Display number of days
+        >>> len(radiance_arrays)
+        30
+        # Calculate mean of arrays
+        >>> radiance_mean = calculate_mean(radiance_arrays)
+        # Display shape of mean array
+        >>> radiance_mean.shape
+        (18, 40)
     """
     # Create stack of numpy arrays (3d array)
     radiance_stack = np.stack(radiance_data)
@@ -418,10 +510,33 @@ def export_array(array, output_path, metadata):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
-        >>>
+        >>> # Define export output paths
+        >>> radiance_mean_outpath = os.path.join(
+        ...     output_directory,
+        ...     "radiance-mean.tif")
+        # Define export transform
+        >>> transform = from_origin(
+        ...     lon_min,
+        ...     lat_max,
+        ...     coord_spacing,
+        ...     coord_spacing)
+        >>> # Define export metadata
+        >>> export_metadata = {
+        ...     "driver": "GTiff",
+        ...     "dtype": radiance_mean.dtype,
+        ...     "nodata": 0,
+        ...     "width": radiance_mean.shape[1],
+        ...     "height": radiance_mean.shape[0],
+        ...     "count": 1,
+        ...     "crs": 'epsg:4326',
+        ...     "transform": transform
+        ... }
+        >>> # Export mean radiance
+        >>> export_array(
+        >>>     array=radiance_mean,
+        >>>     output_path=radiance_mean_outpath,
+        >>>     metadata=export_metadata)
+        Exported radiance-mean.tif
     """
     try:
         # Write numpy array to GeoTiff
@@ -509,10 +624,19 @@ def create_plotting_extent(study_area, longitude_column, latitude_column):
 
     Example
     -------
-        >>>
-        >>>
-        >>>
-        >>>
+        >>> # Define path to lat/lon CSV
+        >>> psu_lat_lon_path = os.path.join(
+        ...     radiance_directory, "PSU_Pixel_LatLongs.csv")
+        >>> Read CSV into dataframe
+        >>> psu_lat_lon_df = pd.read_csv(psu_lat_lon
+        >>> # Create PSU extent from dataframe
+        >>> psu_extent = create_plotting_extent(
+        ...     study_area=psu_lat_lon_df,
+        ...     longitude_column='Longitude',
+        ...     latitude_column='Latitude')
+        >>> # Display extent
+        >>> psu_extent
+        (-77.93943837333333, -77.77277170666667, 40.75700065647059, 40.83200066352941)
     """
     # Get number pixels in study area
     num_pixels = len(study_area.index)
