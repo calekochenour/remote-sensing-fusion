@@ -623,6 +623,12 @@ def extract_extent(study_area, longitude_column, latitude_column):
         Tuple (left, right, bottom, top) of the
         study area bounds.
 
+    transform : rasterio.transform affine object
+        Affine transformation for the georeferenced array.
+
+    shape : tuple (of int)
+        Shape (rows, columns) of the spatially-correct array.
+
     Example
     -------
         >>> # Define path to lat/lon CSV
@@ -631,13 +637,20 @@ def extract_extent(study_area, longitude_column, latitude_column):
         >>> Read CSV into dataframe
         >>> psu_lat_lon_df = pd.read_csv(psu_lat_lon
         >>> # Create PSU extent from dataframe
-        >>> psu_extent = create_plotting_extent(
+        >>> psu_extent, psu_transform, psu_shape = create_plotting_extent(
         ...     study_area=psu_lat_lon_df,
         ...     longitude_column='Longitude',
         ...     latitude_column='Latitude')
         >>> # Display extent
         >>> psu_extent
         (-77.93943837333333, -77.77277170666667, 40.75700065647059, 40.83200066352941)
+        >>> # Display transform
+        >>> psu_transform
+        Affine(0.004166666666666521, 0.0, -77.93735504,
+               0.0, -0.004166667058823534, 40.82991733)
+        >>> # Display shape
+        >>> psu_shape
+        (18, 40)
     """
     # Get number pixels in study area
     num_pixels = len(study_area.index)
@@ -647,6 +660,9 @@ def extract_extent(study_area, longitude_column, latitude_column):
 
     # Get number of columns in study area (unique longitude values)
     num_columns = len(study_area[longitude_column].unique())
+
+    # Define array shape (rows, columns)
+    shape = (num_rows, num_columns)
 
     # Get min/max longitude and latitude values
     longitude_min = study_area[longitude_column].min()
@@ -673,7 +689,7 @@ def extract_extent(study_area, longitude_column, latitude_column):
         longitude_min, latitude_max, column_spacing, row_spacing)
 
     # Return extent
-    return extent, transform
+    return extent, transform, shape
 
 
 def create_metadata(array, transform, driver='GTiff', nodata=0, count=1, crs="epsg:4326"):
