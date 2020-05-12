@@ -596,7 +596,7 @@ def subtract_arrays(minuend, subtrahend):
     return difference
 
 
-def create_plotting_extent(study_area, longitude_column, latitude_column):
+def extract_extent(study_area, longitude_column, latitude_column):
     """Creates a plotting extent from a
     dataframe containing pixel lat/lon values.
 
