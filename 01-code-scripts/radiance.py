@@ -760,6 +760,225 @@ def create_metadata(array, transform, driver='GTiff', nodata=0, count=1, crs="ep
     return metadata
 
 
+def store_monthly_mean(radiance_daily, dates):
+    """Calculates monthly mean radiance values
+    for each entry (year/month) in a list of and
+    stores the monthly means in a dictionary.
+
+    Parameters
+    ----------
+    radiance_daily : dict
+        Dictionary containing daily radiance arrays,
+        indexed by radiance['YYYY']['MM']['DD'].
+
+    dates : list (of str)
+        List containing strings of format 'YYYY-MM'.
+
+    Returns
+    -------
+    radiance_monthly_mean : dict
+        Dictionary containig monthly mean radiance
+        arrays, indexed by radiance_monthly_mean['YYYY']['MM'].
+
+    Example
+    -------
+        >>> # Define months list
+        >>> months = [
+        ...     '2018-09',
+        ...     '2018-10',
+        ...     '2018-11',
+        ...     '2018-12'
+        ... ]
+        >>> # Store monthly means in dictionary
+        >>> radiance_monthtly_mean = store_monthly_mean(
+        ...     radiance_daily=radiance_sept_2018_may_2020, dates=months)
+        >>> # Show top-level keys (years)
+        >>> radiance_monthtly_mean.keys()
+        dict_keys(['2018'])
+        >>> # Show 2018 keys (months)
+        >>> radiance_monthtly_mean.get('2018').keys()
+        dict_keys(['09', '10', '11', '12'])
+    """
+    # Initialize dictionary to store monthly mean radiance arrays
+    radiance_monthtly_mean = {}
+
+    # Loop through all dates
+    for date in dates:
+
+        # Extract year and month
+        year, month = date.split('-')
+
+        # Add year to dictionary if not existing key
+        if year not in radiance_monthtly_mean.keys():
+            radiance_monthtly_mean[year] = {}
+
+        # Get dictionary of daily arrays for full month
+        radiance_dict = radiance_daily.get(year).get(month)
+
+        # Flatten dictionary to list of arrays
+        radiance_arrays = flatten_data(radiance_dict)
+
+        # Calculate mean of arrays
+        radiance_mean = calculate_mean(radiance_arrays)
+
+        # Add mean array to dictionary
+        radiance_monthtly_mean[year][month] = radiance_mean
+
+    # Return monthly means
+    return radiance_monthtly_mean
+
+
+def store_continuous_range_mean(radiance_daily, date_range_list):
+    """Calculates monthly mean radiance values
+    for each entry (year/month) in a list of and
+    stores the monthly means in a dictionary.
+
+    Parameters
+    ----------
+    radiance_daily : dict
+        Dictionary containing daily radiance arrays,
+        indexed by radiance['YYYY']['MM']['DD'].
+
+    date_ranges : list (of str)
+        List containing strings of format 'YYYY-MM-DD'.
+
+    Returns
+    -------
+    radiance_date_range_mean : dict
+        Dictionary containig date range mean radiance arrays,
+        indexed by radiance_date_range_mean['YYYYMMDD-YYYYMMDD'].
+
+    Example
+    -------
+        >>> # Define date ranges
+        >>> fall_2018_date_range_list = [
+        ...    ('2018-09-01', '2018-12-16'),
+        ...    ('2018-11-18', '2018-11-24'),
+        ...    ('2018-12-08', '2018-12-14'),
+        ...    ('2018-12-17', '2019-01-04'),
+        ... ]
+        >>> # Store means
+        >>> fall_2018_means = store_continuous_range_mean(
+        ...     radiance_daily=radiance_sept_2018_may_2020,
+        ...     date_range_list=fall_2018_date_range_list)
+        >>> # Show keys
+        >>> for key in fall_2018_means.keys():
+        ...     print(key)
+        20180901-20181216
+        20181118-20181124
+        20181208-20181214
+        20181217-20190104
+    """
+    # Create list of date ranges for start/end date combo
+    date_ranges = [create_date_list(start_date, end_date)
+                   for start_date, end_date in date_range_list]
+
+    # Initialize dictionary to store monthly mean radiance arrays
+    radiance_date_range_mean = {}
+
+    # Loop through all months
+    for date_range in date_ranges:
+
+        # Create index based on date range
+        date_key = f"{date_range[0].replace('-', '')}-{date_range[-1].replace('-', '')}"
+
+        # Get array for each date into list
+        radiance_arrays = extract_data(
+            radiance=radiance_daily, dates=date_range)
+
+        # Calculate mean of arrays
+        radiance_mean = calculate_mean(radiance_arrays)
+
+        # Add mean array to dictionary
+        if date_key not in radiance_date_range_mean.keys():
+            radiance_date_range_mean[date_key] = radiance_mean
+
+    # Return date range means
+    return radiance_date_range_mean
+
+
+def store_weekly_range_mean(radiance_daily, start_date, end_date):
+    """Calculates mean radiance values
+    for each entry (year/month) in a list and
+    stores the means in a dictionary.
+
+    Parameters
+    ----------
+    radiance_daily : dict
+        Dictionary containing daily radiance arrays,
+        indexed by radiance['YYYY']['MM']['DD'].
+
+    start_date : str
+        String of format 'YYYY-MM-DD'.
+
+
+    start_date : str
+        String of format 'YYYY-MM-DD'.
+
+    Returns
+    -------
+    radiance_weekly_range_mean : dict
+        Dictionary containing recurring weekly mean radiance arrays,
+        indexed by radiance_date_range_mean['YYYYMMDD-YYYYMMDD-DAY'].
+
+    Example
+    -------
+        >>> # Store Fall 2018 data
+        >>> fall_2018_weekly = store_weekly_range_mean(
+        ...     radiance_daily=radiance_sept_2018_may_2020,
+        ...     start_date='2018-09-01', end_date='2018-12-16')
+        >>> # Display dictionary keys
+        >>> for key in fall_2018_weekly.keys():
+        ...     print(key)
+        20180901-20181216-SUN
+        20180901-20181216-MON
+        20180901-20181216-TUE
+        20180901-20181216-WED
+        20180901-20181216-THU
+        20180901-20181216-FRI
+        20180901-20181216-SAT
+        20180901-20181216-BUS
+    """
+    # Define date frequencies to loop through for creating date ranges
+    day_list = ["W-SUN", "W-MON", "W-TUE", "W-WED", "W-THU", "W-FRI", "W-SAT", "B"]
+
+    # Create list of date ranges for each day in date list (all by default)
+    date_ranges = [create_date_list(start_date, end_date, date_frequency=day)
+                   for day in day_list]
+
+    # Create string for adding to the end of the index string
+    day_str = [day[-3:] if "W-" in day else f"{day}US" for day in day_list]
+
+    # Initialize index for looping through day list
+    day_index = 0
+
+    # Initialize dictionary to store weekly range mean radiance arrays
+    radiance_weekly_range_mean = {}
+
+    # Loop through all months
+    for date_range in date_ranges:
+
+        # Create index based on date range and recurring day
+        date_key = f"{start_date.replace('-', '')}-{end_date.replace('-', '')}-{day_str[day_index]}"
+
+        # Get array for each date into list
+        radiance_arrays = extract_data(
+            radiance=radiance_daily, dates=date_range)
+
+        # Calculate mean of arrays
+        radiance_mean = calculate_mean(radiance_arrays)
+
+        # Add mean array to dictionary
+        if date_key not in radiance_weekly_range_mean.keys():
+            radiance_weekly_range_mean[date_key] = radiance_mean
+
+        # Add one to day index
+        day_index += 1
+
+    # Return weekly range means
+    return radiance_weekly_range_mean
+
+
 def unpack_dictionaries(dictionaries):
     """Flattens/unpacks a list of dictionaries into
     a single dictionary.
