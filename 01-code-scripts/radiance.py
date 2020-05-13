@@ -1,5 +1,6 @@
 # Imports
 import re
+from collections import ChainMap
 import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
@@ -757,3 +758,41 @@ def create_metadata(array, transform, driver='GTiff', nodata=0, count=1, crs="ep
 
     # Return metadata
     return metadata
+
+
+def unpack_dictionaries(dictionaries):
+    """Flattens/unpacks a list of dictionaries into
+    a single dictionary.
+
+    Parameters
+    ----------
+    dictionaries : list
+        List containing multiple dictionaries
+
+    Returns
+    -------
+    unpacked : dict
+        Dictionary containing all keys/values of
+        all dictionaries in the input list.
+
+    Example
+    -------
+        >>> # Define dictionaries
+        >>> week_1 = {'radiance-week1': 200}
+        >>> week_2 = {'radiance-week2': 300}
+        >>> # Create list of dictionaries
+        >>> week_list = [week_1, week_2]
+        >>> week_list
+        [{'radiance-week1': 200}, {'radiance-week2': 300}]
+        >>> # Unpack dictionaries
+        >>> unpacked = unpack_dictionaries(week_list)
+        {'radiance-week1': 200, 'radiance-week2': 300}
+    """
+    # Reverse input list
+    dictionaries_reversed = list(reversed(dictionaries))
+
+    # Flatten/unpack all semester dictionaries into single dictionary
+    unpacked = dict(ChainMap(*dictionaries_reversed))
+
+    # Return unpacked dictionary
+    return unpacked
