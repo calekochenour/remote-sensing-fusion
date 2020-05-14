@@ -1114,7 +1114,7 @@ def plot_values(radiance, location='Penn State Campus', title='Radiance', data_s
         fig.text(0.5, .15, f"Data Source: {data_source}",
                  ha='center', fontsize=16)
 
-    # Return axes object
+    # Return figure and axes object
     return fig, ax
 
 
@@ -1210,4 +1210,52 @@ def plot_histogram(radiance, location='Penn State Campus', title='Distribution o
         fig.text(0.5, .03, f"Data Source: {data_source}",
                  ha='center', fontsize=14)
 
+    # Return figure and axes object
     return fig, ax
+
+
+def save_figure(filepath):
+    """Saves the current figure to a specified location.
+
+    Parameters
+    ----------
+    filepath : str
+        Path (including file name and extension)
+        for the output file.
+
+    Returns
+    -------
+    message : str
+        Message indicating location of saved file
+        (upon success) or error message (upon failure)
+
+    Example
+    -------
+        >>> # Plot Sept 2019 mean
+        >>> fig, ax = rd.plot_values(
+        ...     radiance_monthtly_mean.get('2019').get('09'),
+        ...     title="September 2019 Mean Radiance",
+        ...     difference=False)
+        >>> # Define output path
+        >>> outpath = os.path.join(
+        ...     working_directory,
+        ...     "penn-state-campus-radiance-sept-2019.png")
+        >>> # Save figure as PNG
+        >>> save_figure(outpath)
+        Saved plot: working_directory\\penn-state-campus-radiance-sept-2019.png
+    """
+    # Save figure
+    try:
+        plt.savefig(fname=filepath, facecolor='k',
+                    dpi=300, bbox_inches="tight")
+
+    # Set message to error
+    except Exception as error:
+        message = print(f"Could not save plot. ERROR: {error}")
+
+    # Set message to output location
+    else:
+        message = print(f"Saved plot: {filepath}")
+
+    # Return message
+    return message
