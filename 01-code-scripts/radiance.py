@@ -1,11 +1,13 @@
 # Imports
 import re
 from collections import ChainMap
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from pandas.io.json import json_normalize
 import rasterio as rio
 from rasterio.transform import from_origin
+import earthpy.plot as ep
 import earthpy.mask as em
 
 
@@ -1015,3 +1017,197 @@ def unpack_dictionaries(dictionaries):
 
     # Return unpacked dictionary
     return unpacked
+
+
+def plot_values(radiance, location='Penn State Campus', title='Radiance', data_source='NASA Black Marble', difference=False):
+    """Plots the values in a radiance array.
+
+    Parameters
+    ----------
+    radiance : numpy array
+        Array containing raw values, mean values,
+        or difference values.
+
+    location : str, optional
+        Name of study area location. Included in plot
+        super-title. Default value is 'Penn State Campus'.
+
+    title : str, optional
+        Plot sub-title. Default value is 'Radiance'.
+        Intended for 'September 2019 Mean Radiance' or
+        'Change in Mean Radiance (September 2019 vs.
+        March 2020).'
+
+    data_source : str, optional
+        Sources of data used in the plot.
+        Default value is 'NASA Black Marble'.
+
+    difference : bool, optional
+        Boolean indicating if the array contains raw
+        values or mean values (False) or contains
+        difference values (True). Default value is False.
+
+    Returns
+    -------
+    tuple
+
+        fig : matplotlib.figure.Figure object
+            The figure object associated with the plot.
+
+        ax : matplotlib.axes._subplots.AxesSubplot object
+            The axes object associated with the plot.
+
+    Example
+    -------
+        >>> # Plot difference from Sept 2019 to March 2020
+        >>> fig, ax = plot_values(
+        ...     diff_sep_2019_march_2020,
+        ...     title="Change in Mean Radiance (September 2019 vs. March 2020)",
+        ...     difference=True)
+    """
+    # Find absolute values for radiance min & max
+    radiance_min_abs = np.absolute(radiance.min())
+    radiance_max_abs = np.absolute(radiance.max())
+
+    # Determine max value (for plotting vmin/vmax)
+    plot_max = radiance_min_abs if (
+        radiance_min_abs > radiance_max_abs) else radiance_max_abs
+
+    # Define vmin and vmax
+    plot_vmin = -plot_max if difference else 0
+    plot_vmax = plot_max
+
+    # Define radiance units
+    units = "$\mathrm{nWatts \cdot cm^{−2} \cdot sr^{−1}}$"
+
+    # Define title
+    plot_title = f"{title} ({units})"
+
+    # Define colormap
+    plot_cmap = 'RdBu_r' if difference else "Greys_r"
+
+    # Use dark background
+    with plt.style.context('dark_background'):
+
+        # Create figure and axes object
+        fig, ax = plt.subplots(figsize=(16, 8))
+
+        # Adjust spacing
+        plt.subplots_adjust(top=0.95)
+
+        plt.suptitle(f"{location} Cloud Free Radiance", size=24)
+
+        # Define axes object
+        ep.plot_bands(
+            radiance,
+            scale=False,
+            title=plot_title,
+            vmin=plot_vmin,
+            vmax=plot_vmax,
+            cmap=plot_cmap,
+            ax=ax)
+
+        # Set title size
+        ax.title.set_size(20)
+
+        # Add caption
+        fig.text(0.5, .15, f"Data Source: {data_source}",
+                 ha='center', fontsize=16)
+
+    # Return axes object
+    return fig, ax
+
+
+def plot_histogram(radiance, location='Penn State Campus', title='Distribution of Radiance', xlabel='Radiance',
+                   ylabel='Pixel Count', data_source='NASA Black Marble', difference=False):
+    """Plots the distribution of values in a radiance array.
+
+    Parameters
+    ----------
+    radiance : numpy array
+        Array containing raw values, mean values,
+        or difference values.
+
+    location : str, optional
+        Name of study area location. Included in plot
+        super-title. Default value is 'Penn State Campus'.
+
+    title : str, optional
+        Plot sub-title. Default value is 'Distribution of
+        Radiance'. Intended for 'Distribution of September
+        2019 Mean Radiance' or 'Distribution of the Change
+        in Mean Radiance (September 2019 vs. March 2020).'
+
+    xlabel : str, optional
+        Label on the x-axis. Default value is 'Radiance'.
+
+    ylabel : str, optional
+        Label on the y-axis. Default value is 'Pixel Count'.
+
+    data_source : str, optional
+        Sources of data used in the plot.
+        Default value is 'NASA Black Marble'.
+
+    difference : bool, optional
+        Boolean indicating if the array contains raw
+        values or mean values (False) or contains
+        difference values (True). Default value is False.
+
+    Returns
+    -------
+    tuple
+
+        fig : matplotlib.figure.Figure object
+            The figure object associated with the histogram.
+
+        ax : matplotlib.axes._subplots.AxesSubplot object
+            The axes object associated with the histogram.
+
+    Example
+    -------
+        >>> # Plot Sept 2019 vs. March 2020 change histogram
+        >>> fig, ax = plot_histogram(
+        ...     diff_sep_2019_march_2020,
+        ...     title="Distribution of the Change in Mean Radiance (September 2019 vs. March 2020)",
+        ...     xlabel='Change in Mean Radiance',
+        ...     difference=True)
+    """
+    # Find absolute values for radiance min & max
+    radiance_min_abs = np.absolute(radiance.min())
+    radiance_max_abs = np.absolute(radiance.max())
+
+    # Determine max value (for plotting vmin/vmax)
+    plot_max = radiance_min_abs if (
+        radiance_min_abs > radiance_max_abs) else radiance_max_abs
+
+    # Define vmin and vmax
+    hist_min = -plot_max if difference else 0
+    hist_max = plot_max
+
+    # Define histogram range
+    hist_range = (hist_min, hist_max)
+
+    # Define radiance units
+    units = "$\mathrm{nWatts \cdot cm^{−2} \cdot sr^{−1}}$"
+
+    # Use dark background
+    with plt.style.context('dark_background'):
+        fig, ax = ep.hist(
+            radiance,
+            hist_range=hist_range,
+            colors='#984ea3',
+            title=title,
+            xlabel=f'{xlabel} ({units})',
+            ylabel=ylabel)
+
+        # Add super title
+        plt.suptitle(f"{location} Cloud Free Radiance", size=24)
+
+        # Adjust spacing
+        plt.subplots_adjust(top=0.9)
+
+        # Add caption
+        fig.text(0.5, .03, f"Data Source: {data_source}",
+                 ha='center', fontsize=14)
+
+    return fig, ax
