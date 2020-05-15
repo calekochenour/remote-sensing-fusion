@@ -1,4 +1,5 @@
 # Imports
+import os
 import re
 from collections import ChainMap
 import matplotlib.pyplot as plt
@@ -551,7 +552,7 @@ def export_array(array, output_path, metadata):
         output_message = f"ERROR: {error}"
 
     else:
-        output_message = f"Exported {output_path}"
+        output_message = f"Exported {os.path.split(output_path)[-1]}"
 
     return print(output_message)
 
@@ -1400,7 +1401,7 @@ def save_figure(filepath):
 
     # Set message to output location
     else:
-        message = print(f"Saved plot: {filepath}")
+        message = print(f"Saved plot: {os.path.split(filepath)[-1]}")
 
     # Return message
     return message
