@@ -1,9 +1,46 @@
 name: remote-sensing-fusion
-
 channels:
   - conda-forge
   - defaults
 
 dependencies:
-  - ##
-  - ##
+   # Core dependencies
+  - python=3.7
+  - pip
+
+  # Core scientific python
+  - numpy
+  - matplotlib
+  - pyqt
+  - seaborn
+  - tqdm
+  - kiwisolver
+
+  # Spatial packages
+  - rasterio
+  - pysal
+  - pyproj
+  - rasterstats
+  - geopy
+  - cartopy
+  - geopandas
+  - contextily
+  - earthpy
+  - folium
+  - geojson
+  - mapboxgl
+  - hydrofunctions
+  - geocoder
+  - tweepy
+
+  # Natural language processing
+  - nltk
+  - textblob
+
+  # Jupyter Environment
+  - autopep8
+  - jupyterlab
+  - notebook
+  - ipython
+  - jupyter_contrib_nbextensions
+  - nbclean
