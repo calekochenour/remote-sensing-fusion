@@ -552,7 +552,7 @@ def export_array(array, output_path, metadata):
         output_message = f"ERROR: {error}"
 
     else:
-        output_message = f"Exported {os.path.split(output_path)[-1]}"
+        output_message = f"Exported: {os.path.split(output_path)[-1]}"
 
     return print(output_message)
 
