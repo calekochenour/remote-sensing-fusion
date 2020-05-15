@@ -7,36 +7,16 @@ channels:
 dependencies:
    # Core dependencies
   - python=3.7
-  - pip
 
   # Core scientific python
-  - numpy
   - matplotlib
-  - pyqt
+  - numpy
   - seaborn
-  - tqdm
-  - kiwisolver
 
   # Spatial packages
   - rasterio
-  - pysal
-  - pyproj
-  - rasterstats
-  - geopy
-  - cartopy
   - geopandas
-  - contextily
   - earthpy
-  - folium
-  - geojson
-  - mapboxgl
-  - hydrofunctions
-  - geocoder
-  - tweepy
-
-  # Natural language processing
-  - nltk
-  - textblob
 
   # Jupyter Environment
   - autopep8
