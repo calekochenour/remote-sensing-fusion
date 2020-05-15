@@ -1036,7 +1036,7 @@ def plot_values(radiance, location='Penn State Campus', title='Radiance', data_s
         Plot sub-title. Default value is 'Radiance'.
         Intended for 'September 2019 Mean Radiance' or
         'Change in Mean Radiance (September 2019 vs.
-        March 2020).'
+        March 2020)'.
 
     data_source : str, optional
         Sources of data used in the plot.
@@ -1095,9 +1095,10 @@ def plot_values(radiance, location='Penn State Campus', title='Radiance', data_s
         # Adjust spacing
         plt.subplots_adjust(top=0.95)
 
+        # Add super title
         plt.suptitle(f"{location} Cloud Free Radiance", size=24)
 
-        # Define axes object
+        # Plot array
         ep.plot_bands(
             radiance,
             scale=False,
@@ -1192,6 +1193,8 @@ def plot_histogram(radiance, location='Penn State Campus', title='Distribution o
 
     # Use dark background
     with plt.style.context('dark_background'):
+
+        # Create figure and axes object
         fig, ax = ep.hist(
             radiance,
             hist_range=hist_range,
@@ -1209,6 +1212,148 @@ def plot_histogram(radiance, location='Penn State Campus', title='Distribution o
         # Add caption
         fig.text(0.5, .03, f"Data Source: {data_source}",
                  ha='center', fontsize=14)
+
+    # Return figure and axes object
+    return fig, ax
+
+
+def plot_change(pre_change, post_change, location='Penn State Campus',
+                titles=['Radiance', 'Radiance', 'Radiance'],
+                data_source='NASA Black Marble'):
+    """Plots two arrays and the difference
+    between the arrays on the same figure.
+
+    pre_change : numpy array
+        Numpy array containing radiance values.
+
+    post_change : numpy array
+        Numpy array containing radiance values.
+
+    location : str, optional
+        Name of study area location. Included in plot
+        super-title. Default value is 'Penn State Campus'.
+
+    titles : list of str, optional
+        Plot sub-titles. Default value is ['Radiance',
+        'Radiance', 'Radiance']. Intended for ['September
+        2019 Mean Radiance', 'March 2020 Mean Radiance',
+       'Change in Mean Radiance (September 2019 vs. March
+       2020)'].
+
+    data_source : str, optional
+        Sources of data used in the plot.
+        Default value is 'NASA Black Marble'.
+
+    Returns
+    -------
+    tuple
+
+        fig : matplotlib.figure.Figure object
+            The figure object associated with the histogram.
+
+        ax : matplotlib.axes._subplots.AxesSubplot objects
+            The axes objects associated with the histogram.
+
+    Example
+    -------
+        >>> # Define titles
+        >>> plot_titles = [
+        ...     'September 2019 Mean Radiance',
+        ...     'March 2020 Mean Radiance',
+        ...     'Change in Mean Radiance (September 2019 vs. March 2020)'
+        ... ]
+        >>> # Plot Sept 2019 and March 2020
+        >>> fig, ax = plot_change(
+        >>>     pre_change=radiance_monthtly_mean.get('2019').get('09'),
+        >>>     post_change=radiance_monthtly_mean.get('2020').get('03'),
+                titles=plot_titles)
+    """
+    # Find max radiance values in pre-change and post-change
+    pre_change_max = np.absolute(pre_change.max())
+    post_change_max = np.absolute(post_change.max())
+
+    # Define vmin/vmax for radiance values
+    value_vmin = 0
+
+    value_vmax = pre_change_max if (
+        pre_change_max > post_change_max) else post_change_max
+
+    # Calculate difference (post-change - pre-change)
+    diff = subtract_arrays(post_change, pre_change)
+
+    # Find absolute values for change min & max
+    diff_min_abs = np.absolute(diff.min())
+    diff_max_abs = np.absolute(diff.max())
+
+    # Determine max value (for plotting vmin/vmax)
+    diff_vmax = diff_min_abs if (
+        diff_min_abs > diff_max_abs) else diff_max_abs
+
+    diff_vmin = -diff_vmax
+
+    # Define radiance units
+    units = "$\mathrm{nWatts \cdot cm^{−2} \cdot sr^{−1}}$"
+
+    # Define titles
+    pre_change_title = f"{titles[0]} ({units})"
+    post_change_title = f"{titles[1]} ({units})"
+    diff_title = f"{titles[2]} ({units})"
+
+    # Define color maps
+    value_cmap = 'Greys_r'
+    diff_cmap = 'RdBu_r'
+
+    # Use dark background
+    with plt.style.context('dark_background'):
+
+        # Create figure and axes objects
+        fig, ax = plt.subplots(3, 1, figsize=(30, 20))
+
+        # Add super title
+        plt.suptitle(f"{location} Cloud Free Radiance", size=24)
+
+        # Adjust spacing
+        plt.subplots_adjust(hspace=0.15)
+        plt.subplots_adjust(top=0.925)
+
+        # Plot pre-change array
+        ep.plot_bands(
+            pre_change,
+            scale=False,
+            title=pre_change_title,
+            vmin=value_vmin,
+            vmax=value_vmax,
+            cmap=value_cmap,
+            ax=ax[0])
+
+        # Plot post-change array
+        ep.plot_bands(
+            post_change,
+            scale=False,
+            title=post_change_title,
+            vmin=value_vmin,
+            vmax=value_vmax,
+            cmap=value_cmap,
+            ax=ax[1])
+
+        # Plot diff array
+        ep.plot_bands(
+            diff,
+            scale=False,
+            title=diff_title,
+            vmin=diff_vmin,
+            vmax=diff_vmax,
+            cmap=diff_cmap,
+            ax=ax[2])
+
+        # Add caption
+        fig.text(0.5, .1, f"Data Source: {data_source}",
+                 ha='center', fontsize=16)
+
+        # Set title size
+        ax[0].title.set_size(20)
+        ax[1].title.set_size(20)
+        ax[2].title.set_size(20)
 
     # Return figure and axes object
     return fig, ax
