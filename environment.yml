@@ -5,7 +5,7 @@ channels:
   - defaults
 
 dependencies:
-   # Core dependencies
+  # Core dependencies
   - python=3.7
 
   # Core scientific python
