@@ -12,7 +12,7 @@ To run this project in a web browser, click the icon below to launch the project
 
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/calekochenour/remote-sensing-fusion/master)
 
-Binder will open a Jupyter Notebook in the current web browser. Click "New" and select "Terminal" to open a terminal in the project folder.
+Binder will open a Jupyter Notebook in the current web browser.
 
 ## 2. Contents
 
