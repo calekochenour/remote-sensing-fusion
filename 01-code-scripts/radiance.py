@@ -4,6 +4,7 @@ import re
 from collections import ChainMap
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.ma as ma
 import pandas as pd
 from pandas.io.json import json_normalize
 import rasterio as rio
@@ -914,7 +915,6 @@ def store_weekly_range_mean(radiance_daily, start_date, end_date):
     start_date : str
         String of format 'YYYY-MM-DD'.
 
-
     start_date : str
         String of format 'YYYY-MM-DD'.
 
@@ -1405,3 +1405,305 @@ def save_figure(filepath):
 
     # Return message
     return message
+
+
+def calculate_statistic(radiance_data, statistic='mean'):
+    """Calculates the specified statistics over
+    many arrays covering the same area.
+
+    Parameters
+    ----------
+    radiance_data : list
+        List of masked numpy arrays (can contain NaN values).
+
+    statistic : str (optional)
+        Statistic to be calculated over the arrays in the
+        list. Default value is 'mean'. Function supports
+        'mean', 'variance', and 'deviation'.
+
+    Returns
+    -------
+    radiance_stack_statistic : numpy array
+        Numpy array containing the statistic value for each pixel,
+        over the number of arrays in the input list.
+
+    Example
+    -------
+        >>> # Get September 2019 data (all days)
+        >>> radiance = radiance_sept_2019_apr_2020.get('2019').get('09')
+        >>> # Flatten dictionary to list of arrays
+        >>> radiance_arrays = flatten_data(radiance)
+        >>> # Display type
+        >>> type(radiance_arrays)
+        list
+        >>> Display number of days
+        >>> len(radiance_arrays)
+        30
+        # Calculate mean of arrays
+        >>> radiance_mean = calculate_statistic(
+        ...     radiance_arrays, statistic='mean')
+        # Display shape of mean array
+        >>> radiance_mean.shape
+        (18, 40)
+    """
+    # Raise error if input data is not a list
+    if not isinstance(radiance_data, list):
+        raise TypeError("Input data must be of type list.")
+
+    # Create stack of numpy arrays (3d array)
+    radiance_stack = np.stack(radiance_data)
+
+    # Check statistic type
+    # Mean
+    if statistic == 'mean':
+
+        # Get mean for each pixel, over all arrays (bands)
+        radiance_stack_statistic = np.nanmean(radiance_stack, axis=0)
+
+    # Variance
+    elif statistic == 'variance':
+
+        # Get variance for each pixel, over all arrays (bands)
+        radiance_stack_statistic = np.nanvar(radiance_stack, axis=0)
+
+    # Standard deviation
+    elif statistic == 'deviation':
+
+        # Get standard deviation for each pixel, over all arrays (bands)
+        radiance_stack_statistic = np.nanstd(radiance_stack, axis=0)
+
+    # Any other value
+    else:
+        raise ValueError("Invalid statistic. Function supports "
+                         "'mean', 'variance', or 'deviation'.")
+
+    # Return statistic array
+    return radiance_stack_statistic
+
+
+def store_continuous_range_statistic(radiance_daily, date_range_list, statistic='mean'):
+    """Calculates the specified statistic for each entry
+    (year/month) in a list of and stores the statistics
+    values in a dictionary.
+
+    Parameters
+    ----------
+    radiance_daily : dict
+        Dictionary containing daily radiance arrays,
+        indexed by radiance['YYYY']['MM']['DD'].
+
+    date_ranges : list (of str)
+        List containing strings of format 'YYYY-MM-DD'.
+
+    Returns
+    -------
+    radiance_date_range_statistic : dict
+        Dictionary containig date range variance radiance arrays,
+        indexed by radiance_date_range_statisic['YYYYMMDD-YYYYMMDD'].
+
+    Example
+    -------
+        >>> # Define date ranges
+        >>> fall_2018_date_range_list = [
+        ...    ('2018-09-01', '2018-12-16'),
+        ...    ('2018-11-18', '2018-11-24'),
+        ...    ('2018-12-08', '2018-12-14'),
+        ...    ('2018-12-17', '2019-01-04'),
+        ... ]
+        >>> # Store varaiance
+        >>> fall_2018_variance = store_continuous_range_statistic(
+        ...     radiance_daily=radiance_sept_2018_may_2020,
+        ...     date_range_list=fall_2018_date_range_list,
+        ...     statistic='variance')
+        >>> # Show keys
+        >>> for key in fall_2018_variance.keys():
+        ...     print(key)
+        20180901-20181216
+        20181118-20181124
+        20181208-20181214
+        20181217-20190104
+    """
+    # Raise error if input radiance data is not a dictionary
+    if not isinstance(radiance_daily, dict):
+        raise TypeError("Input data must be of type dict.")
+
+    # Raise error if input date data is not a list
+    if not isinstance(date_range_list, list):
+        raise TypeError("Input data must be of type list.")
+
+    # Create list of date ranges for start/end date combo
+    date_ranges = [create_date_list(start_date, end_date)
+                   for start_date, end_date in date_range_list]
+
+    # Initialize dictionary to store radiance arrays
+    radiance_date_range_statistic = {}
+
+    # Loop through all months
+    for date_range in date_ranges:
+
+        # Create index based on date range
+        date_key = f"{date_range[0].replace('-', '')}-{date_range[-1].replace('-', '')}"
+
+        # Get arrays for all dates into list
+        radiance_arrays = extract_data(
+            radiance=radiance_daily, dates=date_range)
+
+        # Check statistic type
+        # Mean
+        if statistic == 'mean':
+
+            # Get mean for each pixel, over all arrays (bands)
+            radiance_statistic = calculate_statistic(
+                radiance_arrays, statistic='mean')
+
+        # Variance
+        elif statistic == 'variance':
+
+            # Get variance for each pixel, over all arrays (bands)
+            radiance_statistic = calculate_statistic(
+                radiance_arrays, statistic='variance')
+
+        # Standard deviation
+        elif statistic == 'deviation':
+
+            # Get standard deviation for each pixel, over all arrays (bands)
+            radiance_statistic = calculate_statistic(
+                radiance_arrays, statistic='deviation')
+
+        # Any other value
+        else:
+            raise ValueError("Invalid statistic. Function supports "
+                             "'mean', 'variance', or 'deviation'.")
+
+        # Add statistic array to dictionary
+        if date_key not in radiance_date_range_statistic.keys():
+            radiance_date_range_statistic[date_key] = radiance_statistic
+
+    # Return date range statistic
+    return radiance_date_range_statistic
+
+
+def extract_quartiles(array):
+    """Calculates and returns the quartiles
+    of an array, with other values masked.
+
+    Inteded for use with arrays representing
+    statistical measures.
+
+    Parameters
+    ----------
+    array : numpy array
+        Array containing the values for quartiling.
+
+    Returns
+    -------
+    quartiles : dict (of masked numpy arrays)
+        Dictionary containing data for all quartiles,
+        with data outside the quartile being masked.
+        Indexed with the following keys: 'quartile-1',
+        'quartile-2', 'quartile-3', 'quartile-4',
+        'quartile-1-2-3', 'quartile-2-3'.
+
+    Example
+    -------
+        >>> # Extract quartiles of array
+        >>> quartiles = extract_quartiles(np.array([1, 2, 3, 4]))
+        >>> # Display keys
+        dict_keys(['quartile-1', 'quartile-2', 'quartile-3',
+                   'quartile-4', 'quartile-1-2-3', 'quartile-2-3'])
+        >>> # Get middle 50%
+        >>> quartiles.get('quartile-2-3')
+        masked_array(data=[--, 2, 3, --],
+                     mask=[True, False, False, True],
+               fill_value=999999)
+    """
+    # Get quartile break points
+    percentile_25, percentile_50, percentile_75 = np.percentile(
+        array, [25, 50, 75])
+
+    # Isolate quartile 1 (mask pixel values above the 25th percentile break point)
+    quartile_1 = ma.masked_where(array > percentile_25, array, copy=True)
+
+    # Isolate quartile 2 (mask pixel values above the 50th percentile break point
+    #  and below the 25th percentile break point)
+    quartile_2 = ma.masked_where(array > percentile_50, array, copy=True)
+
+    quartile_2 = ma.masked_where(
+        quartile_2 <= percentile_25, quartile_2, copy=False)
+
+    # Isolate quartile 3 (mask pixel values above the 75th percentile break point
+    #  and below the 50th percentile break point)
+    quartile_3 = ma.masked_where(array > percentile_75, array, copy=True)
+
+    quartile_3 = ma.masked_where(
+        quartile_3 <= percentile_50, quartile_3, copy=False)
+
+    # Isolate quartile 4 (mask pixel values below the 75th percentile break point)
+    quartile_4 = ma.masked_where(array <= percentile_75, array, copy=True)
+
+    # Isolate bottom 75% (mask pixel values above the 75th percentile break point)
+    quartile_1_2_3 = ma.masked_where(array > percentile_75, array, copy=True)
+
+    # Isolate middle 50% (mask pixel values above the 75th percentile break point
+    #  and below the 25th percentile break point)
+    quartile_2_3 = ma.masked_where(array > percentile_75, array, copy=True)
+
+    quartile_2_3 = ma.masked_where(
+        quartile_2_3 <= percentile_25, quartile_2_3, copy=False)
+
+    # Create dictionary of quartiles
+    quartiles = {
+        "quartile-1": quartile_1,
+        "quartile-2": quartile_2,
+        "quartile-3": quartile_3,
+        "quartile-4": quartile_4,
+        "quartile-1-2-3": quartile_1_2_3,
+        "quartile-2-3": quartile_2_3
+    }
+
+    # Return quartiles dictionary
+    return quartiles
+
+
+def calculate_percent_masked(array):
+    """Calculates the percent of masked values
+    (as a decimal) from an input array.
+
+    This function calculates the percent as
+    an axis-independent number (for the entire
+    array).
+
+    Parameters
+    ----------
+    array : numpy.ndarray or numpy.ma.core.MaskedArray object
+        Input array containing data.
+
+    Returns
+    -------
+    percent_masked : float
+        The percent of masked values, as a decimal.
+
+    Example
+    -------
+        >>> # Imports
+        >>> import numpy as np
+        >>> import numpy.ma as ma
+        >>> # Create masked array
+        >>> masked_arr = ma.array(
+        ...     [1, 2, 3, 4],
+        ...     mask=[True, False, True, False]
+        ... )
+        >>> # Calculate percent masked
+        >>> calculate_percent_masked(masked_arr)
+        0.5
+    """
+    # Raise error if input data not numpy array
+    if not isinstance(array, np.ndarray):
+        raise TypeError("Input must be of type numpy.ndarray or "
+                        "numpy.ma.core.MaskedArray.")
+
+    # Get percent masked
+    percent_masked = round(ma.count_masked(array) / array.size, 4)
+
+    # Return percent masked
+    return percent_masked
