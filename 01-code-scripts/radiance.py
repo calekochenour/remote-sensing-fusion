@@ -1730,33 +1730,26 @@ def store_time_series_means(radiance_daily, start_date, end_date):
 
     Returns
     -------
-    tuple
-
-        radiance_means : list
-            List containing the time series mean values,
-            including masked and NaN values.
-
-        radiance_percent_masked : list
-            List containing the time series percent masked
-            values, ranging from 0-1 (0 indicating no pixels
-            are masked and 1 indicating all pixels are masked).
+    radiance_means_df : pandas dataframe
+        Dataframe containing the time series mean values
+        ('mean_radiance') and percent of masked pixels
+        ('percent_masked'), indexed by date ('YYYY-MM-DD').
 
     Example
     -------
-        >>> # Get list of time series means for PSU campus
-        >>> psu_means, psu_percent_masked = store_full_study_area_mean(
+        >>> # Get dataframe of time series means for PSU campus
+        >>> psu_means = store_time_series_means(
         ...     radiance_daily=radiance_sept_2018_may_2020,
         ...     start_date='2018-09-01',
         ...     end_date='2020-05-07')
-        >>> # Get length of means list
+        >>> # Get length of means dataframe
         >>> len(psu_means)
         615
-        >>> # Get first mean value in list
-        >>> psu_means[0]
-        105.33333333333333
-        >>> # Get first percent masked value in list
-        >>> psu_percent_masked[0]
-        0.9833
+        >>> # Get first entry in dataframe
+        >>> psu_means.loc['2018-09-01']
+        mean_radiance     105.333333
+        percent_masked      0.983300
+        Name: 2018-09-01 00:00:00, dtype: float64
     """
     # Create list of date ranges for start/end date combo
     date_range = create_date_list(start_date, end_date)
@@ -1773,5 +1766,22 @@ def store_time_series_means(radiance_daily, start_date, end_date):
     radiance_percent_masked = [calculate_percent_masked(array)
                                for array in radiance_arrays]
 
-    # Return time series means
-    return radiance_means, radiance_percent_masked
+    # Change masked radiance means to NaN
+    radiance_means_corrected = [np.nan if ma.is_masked(value) else value
+                                for value in radiance_means]
+
+    # Change percent masked values from 0 to 1.0
+    #  for all NaN radiance means
+    radiance_percent_masked_corrected = [
+        1.0 if np.isnan(value) else radiance_percent_masked[index]
+        for index, value in enumerate(radiance_means_corrected)
+    ]
+
+    # Create dataframe from means and percent-masked lists
+    radiance_means_df = pd.DataFrame({
+        'mean_radiance': radiance_means_corrected,
+        'percent_masked': radiance_percent_masked_corrected,
+    }, index=pd.date_range(start_date, end_date))
+
+    # Return time series dataframe
+    return radiance_means_df
