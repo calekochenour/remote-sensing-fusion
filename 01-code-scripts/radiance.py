@@ -1707,3 +1707,71 @@ def calculate_percent_masked(array):
 
     # Return percent masked
     return percent_masked
+
+
+def store_time_series_means(radiance_daily, start_date, end_date):
+    """Calculates mean radiance for the full study area,
+    for the date range provided.
+
+    Meant for plotting a time series of the mean for a
+    full study area.
+
+    Parameters
+    ----------
+    radiance_daily : dict
+        Dictionary containing daily radiance arrays,
+        indexed by radiance['YYYY']['MM']['DD'].
+
+    start_date : str
+        Date of format 'YYYY-MM-DD'.
+
+    end_date : str
+        Date of format 'YYYY-MM-DD'.
+
+    Returns
+    -------
+    tuple
+
+        radiance_means : list
+            List containing the time series mean values,
+            including masked and NaN values.
+
+        radiance_percent_masked : list
+            List containing the time series percent masked
+            values, ranging from 0-1 (0 indicating no pixels
+            are masked and 1 indicating all pixels are masked).
+
+    Example
+    -------
+        >>> # Get list of time series means for PSU campus
+        >>> psu_means, psu_percent_masked = store_full_study_area_mean(
+        ...     radiance_daily=radiance_sept_2018_may_2020,
+        ...     start_date='2018-09-01',
+        ...     end_date='2020-05-07')
+        >>> # Get length of means list
+        >>> len(psu_means)
+        615
+        >>> # Get first mean value in list
+        >>> psu_means[0]
+        105.33333333333333
+        >>> # Get first percent masked value in list
+        >>> psu_percent_masked[0]
+        0.9833
+    """
+    # Create list of date ranges for start/end date combo
+    date_range = create_date_list(start_date, end_date)
+
+    # Store array for each date in list
+    radiance_arrays = extract_data(
+        radiance=radiance_daily, dates=date_range)
+
+    # Store mean values (of each array) time series in list
+    radiance_means = [radiance_array.mean()
+                      for radiance_array in radiance_arrays]
+
+    # Store percent of masked data (of each array) in list
+    radiance_percent_masked = [calculate_percent_masked(array)
+                               for array in radiance_arrays]
+
+    # Return time series means
+    return radiance_means, radiance_percent_masked
