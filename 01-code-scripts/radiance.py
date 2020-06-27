@@ -217,7 +217,30 @@ def get_array(radiance_data, output_rows, output_columns):
     return radiance_array
 
 
-def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
+def apply_scale_factor(data, scale_factor):
+    """Applies a scale factor to remote sensing data.
+
+    Parameters
+    ----------
+    data : numpy array
+        Array containing the unscaled data.
+
+    scale_factor : int or float
+        Factor to multiply the unscaled data by.
+
+    Returns
+    -------
+    data_scaled : numpy array
+        Array containing the scaled data.
+    """
+    # Scale data values
+    data_scaled = data * scale_factor
+
+    # Returned scaled data
+    return data_scaled
+
+
+def store_data(radiance_df, cloud_mask_df, mask_value, no_data, array_shape, dates, scale_factor=1):
     """Masks and stores daily radiance data
     in a dictionary.
 
@@ -234,12 +257,18 @@ def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
     mask_value : int
         Value indicating cloudy pixel that requires masking.
 
+    mask_value : int or float
+        Value indicating the no data value.
+
     array_shape : tuple (of ints)
         Tuple containing the shape (rows, columns) of the
         output numpy arrays.
 
     dates : list
         List of dates (strings), formatted as 'YYYY-MM-DD'.
+
+    scale_factor : int for float
+        Factor to multiply the unscaled data by. Default value is 1.
 
     Returns
     -------
@@ -319,7 +348,7 @@ def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
         # Create tuple for radiance data and cloud mask
         radiance_mask_tuple = (radiance_array, cloud_mask_array)
 
-        # Check if array should be masked (includes mask value)
+        # Check if array should be cloud masked (includes mask value)
         if mask_value in radiance_mask_tuple[1]:
 
             # Mask with cloud mask value
@@ -334,8 +363,36 @@ def store_data(radiance_df, cloud_mask_df, mask_value, array_shape, dates):
             # Assign original array to cloud free
             masked_array = radiance_mask_tuple[0]
 
-        # Store masked array in dictionary, indexed by date
-        radiance_masked[year][month][day] = masked_array
+        # Check array for no data value
+        if no_data in masked_array:
+
+            # Mask no data values
+            masked_array = ma.masked_where(
+                masked_array == no_data, masked_array, copy=True)
+
+        # Check if array is masked array
+        if isinstance(masked_array, np.ma.core.MaskedArray):
+
+            # Change fill value to NaN
+            ma.set_fill_value(masked_array, np.nan)
+
+            # Fill masked values with NaN
+            filled_array = masked_array.filled()
+
+            # Apply scale factor to data
+            scaled_array = apply_scale_factor(filled_array, scale_factor=scale_factor)
+
+            # Store filled array in dictionary, indexed by date
+            radiance_masked[year][month][day] = scaled_array
+
+        # Not masked array
+        else:
+
+            # Apply scale factor to data
+            scaled_array = apply_scale_factor(masked_array, scale_factor=scale_factor)
+
+            # Store array in dictionary, indexed by date
+            radiance_masked[year][month][day] = scaled_array
 
     # Return dictionary of masked data
     return radiance_masked
@@ -1665,9 +1722,52 @@ def extract_quartiles(array):
     return quartiles
 
 
+# def calculate_percent_masked(array):
+#     """Calculates the percent of masked values
+#     (as a decimal) from an input array.
+#
+#     This function calculates the percent as
+#     an axis-independent number (for the entire
+#     array).
+#
+#     Parameters
+#     ----------
+#     array : numpy.ndarray or numpy.ma.core.MaskedArray object
+#         Input array containing data.
+#
+#     Returns
+#     -------
+#     percent_masked : float
+#         The percent of masked values, as a decimal.
+#
+#     Example
+#     -------
+#         >>> # Imports
+#         >>> import numpy as np
+#         >>> import numpy.ma as ma
+#         >>> # Create masked array
+#         >>> masked_arr = ma.array(
+#         ...     [1, 2, 3, 4],
+#         ...     mask=[True, False, True, False]
+#         ... )
+#         >>> # Calculate percent masked
+#         >>> calculate_percent_masked(masked_arr)
+#         0.5
+#     """
+#     # Raise error if input data not numpy array
+#     if not isinstance(array, np.ndarray):
+#         raise TypeError("Input must be of type numpy.ndarray or "
+#                         "numpy.ma.core.MaskedArray.")
+#
+#     # Get percent masked
+#     percent_masked = round(ma.count_masked(array) / array.size, 4)
+#
+#     # Return percent masked
+#     return percent_masked
+
 def calculate_percent_masked(array):
-    """Calculates the percent of masked values
-    (as a decimal) from an input array.
+    """Calculates the percent of masked pixels
+    (NaN) as a decimal from an input array.
 
     This function calculates the percent as
     an axis-independent number (for the entire
@@ -1675,7 +1775,7 @@ def calculate_percent_masked(array):
 
     Parameters
     ----------
-    array : numpy.ndarray or numpy.ma.core.MaskedArray object
+    array : numpy.ndarray
         Input array containing data.
 
     Returns
@@ -1699,11 +1799,10 @@ def calculate_percent_masked(array):
     """
     # Raise error if input data not numpy array
     if not isinstance(array, np.ndarray):
-        raise TypeError("Input must be of type numpy.ndarray or "
-                        "numpy.ma.core.MaskedArray.")
+        raise TypeError("Input must be of type numpy.ndarray.")
 
     # Get percent masked
-    percent_masked = round(ma.count_masked(array) / array.size, 4)
+    percent_masked = 100 * round(np.count_nonzero(np.isnan(array)) / array.size, 4)
 
     # Return percent masked
     return percent_masked
@@ -1759,29 +1858,294 @@ def store_time_series_means(radiance_daily, start_date, end_date):
         radiance=radiance_daily, dates=date_range)
 
     # Store mean values (of each array) time series in list
-    radiance_means = [radiance_array.mean()
+    radiance_means = [np.nanmean(radiance_array)
                       for radiance_array in radiance_arrays]
 
     # Store percent of masked data (of each array) in list
     radiance_percent_masked = [calculate_percent_masked(array)
                                for array in radiance_arrays]
 
-    # Change masked radiance means to NaN
-    radiance_means_corrected = [np.nan if ma.is_masked(value) else value
-                                for value in radiance_means]
-
-    # Change percent masked values from 0 to 1.0
-    #  for all NaN radiance means
-    radiance_percent_masked_corrected = [
-        1.0 if np.isnan(value) else radiance_percent_masked[index]
-        for index, value in enumerate(radiance_means_corrected)
-    ]
+    # # Change masked radiance means to NaN
+    # radiance_means_corrected = [np.nan if ma.is_masked(value) else value
+    #                             for value in radiance_means]
+    #
+    # # Change percent masked values from 0 to 1.0
+    # #  for all NaN radiance means
+    # radiance_percent_masked_corrected = [
+    #     1.0 if np.isnan(value) else radiance_percent_masked[index]
+    #     for index, value in enumerate(radiance_means_corrected)
+    # ]
 
     # Create dataframe from means and percent-masked lists
     radiance_means_df = pd.DataFrame({
-        'mean_radiance': radiance_means_corrected,
-        'percent_masked': radiance_percent_masked_corrected,
+        'mean_radiance': radiance_means,
+        'percent_masked': radiance_percent_masked,
     }, index=pd.date_range(start_date, end_date))
+
+    # Add day numbers
+    day_numbers = np.arange(1, len(radiance_means_df) + 1)
+    radiance_means_df.insert(2, 'day_number', day_numbers)
+
+    # Set column title for index
+    radiance_means_df.index.name = "date"
 
     # Return time series dataframe
     return radiance_means_df
+
+
+def create_noise_mask(mean, variance, threshold=25):
+    """Creates a binary data mask based on quartile
+    thresholds from two mean and variance arrays.
+
+    Parameters
+    ----------
+    mean : numpy array
+        Array containing pixel mean values.
+
+    variance : numpy array
+        Array containing pixel variance values.
+
+    threshold : int
+        Quartile threshold to include in the mask
+        creation. Numbers less than the threshold
+        will be included.
+
+    Returns
+    -------
+    noise_mask : numpy array
+        Array containing all 0s and 1s, representing the
+        intersection of quartiles (i.e. pixels in the
+        bottom 25% for both the mean and variance).
+        Value of 1 indicates the intersection of quartiles.
+
+    Example
+    -------
+        >>> # Create mask
+        >>> mask_25 = create_noise_mask(
+        ...     radiance_mean_arr,
+        ...     radiance_variance_arr,
+        ...     threshold=25
+        ... )
+        >>> # Check mask values
+        >>> np.unique(mask_25)
+        array([0, 1], dtype=int64)
+    """
+    # Raise error if threshold has invalid value
+    if threshold not in [25, 50, 75]:
+        raise ValueError("Invalid threshold. Must be 25, 50, or 75.")
+
+    # Get quartile break points for mean and variance
+    mean_percentile_25, mean_percentile_50, mean_percentile_75 = np.percentile(
+        mean, [25, 50, 75])
+
+    variance_percentile_25, variance_percentile_50, variance_percentile_75 = np.percentile(
+        variance, [25, 50, 75])
+
+    # Check threshold value
+    if threshold == 25:
+
+        # Reclassify mean and variance values into bins (0, 1)
+        #  for pixels (above, below) 25th quartile break point
+        mean_reclassified = np.digitize(
+            mean, bins=[mean_percentile_25, -np.inf], right=True)
+
+        variance_reclassified = np.digitize(
+            mean, bins=[variance_percentile_25, -np.inf], right=True)
+
+    elif threshold == 50:
+
+        # Reclassify mean and variance values into bins (0, 1)
+        #  for pixels (above, below) quartile break point
+        mean_reclassified = np.digitize(
+            mean, bins=[mean_percentile_50, -np.inf], right=True)
+
+        variance_reclassified = np.digitize(
+            mean, bins=[variance_percentile_50, -np.inf], right=True)
+
+    else:
+
+        # Reclassify mean and variance values into bins (0, 1)
+        #  for pixels (above, below) quartile break point
+        mean_reclassified = np.digitize(
+            mean, bins=[mean_percentile_75, -np.inf], right=True)
+
+        variance_reclassified = np.digitize(
+            mean, bins=[variance_percentile_75, -np.inf], right=True)
+
+    # Create mask satisfying both mean and variance percentile conditions
+    noise_mask = np.multiply(mean_reclassified, variance_reclassified)
+
+    # Return noise mask array
+    return noise_mask
+
+
+def apply_noise_mask(array, noise_mask):
+    """Applies a noise mask to an array.
+
+    Parameters
+    ----------
+    array : numpy array
+        Array that will be masked.
+
+    noise_mask : numpy array
+        Array containing 0s and 1s, where values
+        set to 1 will be used as indicators to mask.
+
+    Returns
+    -------
+    masked_array : numpy.ma.core.MaskedArray
+        Array with masked values.
+
+    Example
+    -------
+        >>> # Create mask
+        >>> radiance_mask = create_noise_mask(
+        ...     radiance_mean,
+        ...     radiance_variance,
+        ...     threshold=25
+        ... )
+        >>> # Apply mask
+        >>> masked_array = apply_noise_mask(
+        ...     radiance_change, radiance_mask
+        ... )
+        >>> # Check type
+        >>> type(masked_array)
+        numpy.ma.core.MaskedArray
+    """
+    # Check if array shapes match
+    if array.shape == noise_mask.shape:
+
+        # Raise error if the noise mask is not only 0s and 1s
+        if not np.array_equal(np.unique(noise_mask), np.array([0, 1])):
+            raise ValueError("Noise mask array must only contain 0s and 1s.")
+
+        # Mask array with noise mask
+        masked_array = ma.masked_where(
+            noise_mask == 1, array, copy=True)
+
+    # Different array shapes
+    else:
+
+        # Raise error
+        raise ValueError("Invalid shape. Arrays must have the same shape.")
+
+    # Return masked array
+    return masked_array
+
+
+def mask_noise(radiance_arr, mean_arr, variance_arr, threshold_val=25):
+    """Creates and applies a noise mask to a radiance array.
+
+    Parameters
+    ----------
+    radiance_arr : numpy array
+        Array that will be masked.
+
+    mean_arr : numpy array
+        Array containing pixel mean values.
+        Used as one component of the noise mask.
+
+    variance_arr : numpy array
+        Array containing pixel variance values.
+        Used as one component of the noise mask.
+
+    threshold_val : int
+        Quartile threshold to include in the mask
+        creation. Numbers less than the threshold
+        will be included.
+
+    Returns
+    -------
+    masked_array : numpy.ma.core.MaskedArray
+        Array with masked values.
+
+    Example
+    -------
+        >>> # Mask radiance change array
+        >>> radiance_change_masked = mask_noise(
+        ...     radiance_change
+        ...     radiance_mean,
+        ...     radiance_variance,
+        ...     threshold=25
+        ... )
+        >>> # Check type
+        >>> type(radiance_change_masked)
+        numpy.ma.core.MaskedArray
+    """
+    # Create noise mask
+    noise_mask = create_noise_mask(
+        mean_arr, variance_arr, threshold=threshold_val)
+
+    # Apply noise mask
+    masked_array = apply_noise_mask(radiance_arr, noise_mask)
+
+    # Return masked array
+    return masked_array
+
+
+def clear_day(percent_cloudy, cloudy_threshold):
+    """Returns 1 if the percent of masked pixels
+    (pre-calculated) is less than or equal to a
+    defined threshold value indicating a clear day,
+    else returns 0.
+
+    Parameters
+    ----------
+    percent_cloudy : int or float
+        Percent of an image that is masked (cloudy).
+
+    cloudy_threshold :
+        Threshold value that determines if an image
+        represents a clear day (<= threshold value)
+        or cloudy image (> threshold value).
+
+    Returns
+    -------
+    clear : boolean
+        Boolean indicating clear (1) or cloudy (0) image.
+
+    Example
+    -------
+        >>> # Get image status, clear or cloudy
+        >>> image_status = clear_day(image.percent_masked, 50)
+        >>> Show clear or cloudy
+        >>> image status
+        1
+    """
+    # Determine if image is clear
+    clear = 1 if percent_cloudy <= cloudy_threshold else 0
+
+    # Return result
+    return clear
+
+
+def percent_clear_days(clear_days, total_days):
+    """Returns the percentage of clear days, given
+    the number total days and clear days.
+
+    Parameters
+    ----------
+    clear_days : int
+        Number of clear days.
+
+    total_days : int
+        Number of total days
+
+    Returns
+    -------
+    percent_clear : float
+        Percentage of clear days.
+
+    Example
+    -------
+        >>> # Calculate percent clear
+        >>> percent_clear = percent_clear_days(15, 31)
+        >>> # Show percent clear
+        >>> percent_clear
+        48.39
+    """
+    # Calculate percent clear
+    percent_clear = round(100 * clear_days / total_days, 2)
+
+    # Return result
+    return percent_clear
