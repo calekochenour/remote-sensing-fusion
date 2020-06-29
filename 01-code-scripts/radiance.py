@@ -1,6 +1,7 @@
 # Imports
 import os
 import re
+from datetime import date, timedelta
 from collections import ChainMap
 import matplotlib.pyplot as plt
 import numpy as np
@@ -318,12 +319,12 @@ def store_data(radiance_df, cloud_mask_df, mask_value, no_data, array_shape, dat
     radiance_masked = {}
 
     # Loop through all dates in provided date list
-    for date in dates:
+    for day in dates:
 
         # Split date into year/month/day components
-        year = date.split('-')[0]
-        month = date.split('-')[1]
-        day = date.split('-')[2]
+        year = day.split('-')[0]
+        month = day.split('-')[1]
+        day = day.split('-')[2]
 
         # Add year to dictionary if not existing key
         if year not in radiance_masked.keys():
@@ -449,12 +450,12 @@ def extract_data(radiance, dates):
     array_list = []
 
     # Loop through all dates specified
-    for date in dates:
+    for day in dates:
 
         # Extact year/month/day components from date
-        year = date.split('-')[0]
-        month = date.split('-')[1]
-        day = date.split('-')[2]
+        year = day.split('-')[0]
+        month = day.split('-')[1]
+        day = day.split('-')[2]
 
         # Loop through all columns in flattened dataframe
         for col in radiance_df.columns:
@@ -864,10 +865,10 @@ def store_monthly_mean(radiance_daily, dates):
     radiance_monthtly_mean = {}
 
     # Loop through all dates
-    for date in dates:
+    for day in dates:
 
         # Extract year and month
-        year, month = date.split('-')
+        year, month = day.split('-')
 
         # Add year to dictionary if not existing key
         if year not in radiance_monthtly_mean.keys():
@@ -2149,3 +2150,187 @@ def percent_clear_days(clear_days, total_days):
 
     # Return result
     return percent_clear
+
+
+def create_biweekly_dates(year, break_date=None):
+    """Returns a list of bi-weekly (start date, end date)
+    tuples for a calendar year.
+
+    Parameters
+    ----------
+    year : int
+        Year for the biweekly dates.
+
+    break_date : str
+        Date formatted as 'YYYY-MM-DD'. Date list
+        will stop at the break date.
+
+    Returns
+    -------
+    date_list : list
+        List of tuples (start date, end date).
+
+    Example
+    -------
+        >>> # Create list of dates
+        >>> date_list = create_biweekly_dates(
+        ...     2020, break_date="2020-05-31"
+        ... )
+        >>> # Show date list
+        >>> date_list
+        [('2020-01-01', '2020-01-14'),
+         ('2020-01-15', '2020-01-28'),
+         ('2020-01-29', '2020-02-11'),
+         ('2020-02-12', '2020-02-25'),
+         ('2020-02-26', '2020-03-10'),
+         ('2020-03-11', '2020-03-24'),
+         ('2020-03-25', '2020-04-07'),
+         ('2020-04-08', '2020-04-21'),
+         ('2020-04-22', '2020-05-05'),
+         ('2020-05-06', '2020-05-19')]
+    """
+    # Intialize start date
+    start_date = date(year, 1, 1)
+
+    # If break date exists
+    if break_date:
+
+        # Convert break date type from string to date
+        break_date = date(int(break_date.split(
+            '-')[0]), int(break_date.split('-')[1]), int(break_date.split('-')[2]))
+
+    # Initialize date list
+    date_list = []
+
+    # Compute for single year
+    while start_date.year == year:
+
+        # Set end date
+        end_date = (start_date + timedelta(days=13))
+
+        # Check if break date specified
+        if break_date:
+
+            # Check if the break date within the range
+            if start_date < break_date < end_date:
+
+                # Stop loop
+                break
+
+        # Check if same year
+        if start_date.year != end_date.year:
+
+            # Set end date to Dec 31
+            end_date = date(start_date.year, 12, 31)
+
+        # Add (start date, end date) tuple (strings) to list
+        dates_formatted = (start_date.strftime("%Y-%m-%d"),
+                           end_date.strftime("%Y-%m-%d"))
+        date_list.append(dates_formatted)
+
+        # Set new start date (+1 day to end date)
+        start_date = end_date + timedelta(days=1)
+
+    # Remove last item from list and replace end date with Dec 31
+    if not break_date:
+        date_list.pop()
+        date_list[-1] = (list(date_list[-1])[0], f"{year}-12-31")
+
+    # Return date list
+    return date_list
+
+
+def create_date_cycles(year, cycle, break_date=None):
+    """Returns a list (start date, end date)
+    tuples for a calendar year, based on a
+    specified repeat cycle.
+
+    Parameters
+    ----------
+    year : int
+        Year for the dates.
+
+    cycle : int
+        Number of days in a cycle. Valid values
+        are 1-365 for non-leap years and 1-366
+        for leap years.
+
+    break_date : str
+        Date formatted as 'YYYY-MM-DD'. Date list
+        will stop at the break date.
+
+    Returns
+    -------
+    date_list : list
+        List of tuples (start date, end date).
+
+    Example
+    -------
+        >>> # Create list of dates
+        >>> date_list = create_date_cycles(
+        ...     year=2020,
+        ...     cycle=14,
+        ...     break_date="2020-05-31"
+        ... )
+        >>> # Show date list
+        >>> date_list
+        [('2020-01-01', '2020-01-14'),
+         ('2020-01-15', '2020-01-28'),
+         ('2020-01-29', '2020-02-11'),
+         ('2020-02-12', '2020-02-25'),
+         ('2020-02-26', '2020-03-10'),
+         ('2020-03-11', '2020-03-24'),
+         ('2020-03-25', '2020-04-07'),
+         ('2020-04-08', '2020-04-21'),
+         ('2020-04-22', '2020-05-05'),
+         ('2020-05-06', '2020-05-19')]
+    """
+    # Intialize start date
+    start_date = date(year, 1, 1)
+
+    # If break date exists
+    if break_date:
+
+        # Convert break date type from string to date
+        break_date = date(int(break_date.split(
+            '-')[0]), int(break_date.split('-')[1]), int(break_date.split('-')[2]))
+
+    # Initialize date list
+    date_list = []
+
+    # Compute for single year
+    while start_date.year == year:
+
+        # Set end date based on input cycle
+        end_date = (start_date + timedelta(days=cycle-1))
+
+        # Check if break date specified
+        if break_date:
+
+            # Check if the break date within the range
+            if start_date <= break_date <= end_date:
+
+                # Stop loop
+                break
+
+        # Check if same year
+        if start_date.year != end_date.year:
+
+            # Set end date to Dec 31
+            end_date = date(start_date.year, 12, 31)
+
+        # Add (start date, end date) tuple (strings) to list
+        dates_formatted = (start_date.strftime("%Y-%m-%d"),
+                           end_date.strftime("%Y-%m-%d"))
+        date_list.append(dates_formatted)
+
+        # Set new start date (+1 day to end date)
+        start_date = end_date + timedelta(days=1)
+
+    # Remove last item from list and replace end date with Dec 31
+    if not break_date:
+        date_list.pop()
+        date_list[-1] = (list(date_list[-1])[0], f"{year}-12-31")
+
+    # Return date list
+    return date_list
